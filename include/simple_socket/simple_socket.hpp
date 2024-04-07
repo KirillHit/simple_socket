@@ -6,8 +6,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <memory>
-#include <string>
-#include <thread>
 
 
 namespace sockets
@@ -35,6 +33,7 @@ class Socket
 public:
     explicit Socket(SocketType socket_type);
     ~Socket();
+    void set_socket(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
 protected:
     void set_port(uint16_t port);
     void set_address(const std::string& ip_address);
@@ -44,54 +43,44 @@ protected:
 };
 
 
-class SocketBuf : public Socket
-{
-public:
-    SocketBuf(SocketType socket_type ,const size_t buf_size = 65535);
-    std::shared_ptr<uint8_t> data();
-protected:
-    size_t buf_size_;
-    std::shared_ptr<uint8_t> buf_;
-};
-
-
 class UDPClient : public Socket
 {
 public:
     UDPClient(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
-    int send_message(const std::string& message);
-    int send_message(const uint8_t* message, const size_t len);
+    int send_mes(const uint8_t* mes, const size_t mes_size);
 };
 
 
-class UDPServer : public SocketBuf
+class UDPServer : public Socket
 {
 public:
-    UDPServer(uint16_t port = 8000, const std::string& ip_address = "0.0.0.0", const size_t buf_size = 65535);
+    UDPServer(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
     int socket_bind();
-    ssize_t receive();
+    ssize_t receive(uint8_t* recv_buf, const size_t recv_buf_size);
 private:
     sockaddr_in client_;
     socklen_t client_size_ = sizeof(sockaddr_in);
 };
 
 
-class TCPClient : public SocketBuf
+class TCPClient : public Socket
 {
 public:
-    TCPClient(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1", const size_t buf_size = 65535);
+    TCPClient(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
     int make_connection();
-    int send_message(const std::string& message);
-    int send_message(const uint8_t* message, const size_t len);
+    ssize_t receive(uint8_t* recv_buf, const size_t recv_buf_size);
+    int send_mes(const uint8_t* mes, const size_t mes_size);
 };
 
 
-class TCPServer : public SocketBuf
+class TCPServer : public Socket
 {
 public:
-    TCPServer(u_short port, const std::string& ip_address = "0.0.0.0", const size_t buf_size = 65535);
+    TCPServer(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
     int socket_bind();
-    int spin(void (*func)(uint8_t* const, const size_t, uint8_t** const, size_t* const));
+    int socket_listen();
+    ssize_t receive(uint8_t* recv_buf, const size_t recv_buf_size);
+    int send_mes(const uint8_t* mes, const size_t mes_size);
 private:
     int client_sock_;
     sockaddr_in client_;

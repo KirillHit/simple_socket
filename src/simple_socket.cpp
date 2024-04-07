@@ -15,6 +15,18 @@ Socket::Socket(const SocketType socket_type)
 }
 
 
+void Socket::set_socket(uint16_t port, const std::string& ip_address)
+{
+    if (sockfd_ > 0) {
+        close(sockfd_);
+        sockfd_ = -1;
+    }
+    
+    set_address(ip_address);
+    set_port(port);
+}
+
+
 void Socket::set_port(uint16_t port)
 {
     address_.sin_port = htons(port);
@@ -34,17 +46,6 @@ Socket::~Socket()
 }
 
 
-SocketBuf::SocketBuf(SocketType socket_type ,const size_t buf_size) 
-: Socket(socket_type), buf_size_{buf_size}, buf_(new uint8_t[buf_size]) 
-{}
-
-
-std::shared_ptr<uint8_t> SocketBuf::data()
-{
-    return buf_;
-}
-
-
 UDPClient::UDPClient(uint16_t port, const std::string& ip_address) : Socket(SocketType::TYPE_DGRAM)
 {
     set_address(ip_address);
@@ -52,22 +53,16 @@ UDPClient::UDPClient(uint16_t port, const std::string& ip_address) : Socket(Sock
 }
 
 
-int UDPClient::send_message(const std::string& message)
+int UDPClient::send_mes(const uint8_t* mes, const size_t mes_size)
 {
-    return send_message((uint8_t*) message.c_str(), message.length());
-}
-
-
-int UDPClient::send_message(const uint8_t* message, const size_t len)
-{
-    if(sendto(sockfd_, message, len, 0, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
+    if(sendto(sockfd_, mes, mes_size, 0, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
     return 0;
 }
 
 
-UDPServer::UDPServer(uint16_t port, const std::string& ip_address, const size_t buf_size) 
-: SocketBuf(SocketType::TYPE_DGRAM, buf_size)
+UDPServer::UDPServer(uint16_t port, const std::string& ip_address) 
+: Socket(SocketType::TYPE_DGRAM)
 {
     set_port(port);
     set_address(ip_address);
@@ -82,14 +77,14 @@ int UDPServer::socket_bind()
 }
 
 
-ssize_t UDPServer::receive()
+ssize_t UDPServer::receive(uint8_t* recv_buf, const size_t recv_buf_size)
 {
-    return recvfrom(sockfd_, buf_.get(), buf_size_, 0, reinterpret_cast<sockaddr*>(&client_), &client_size_);
+    return recvfrom(sockfd_, recv_buf, recv_buf_size, 0, reinterpret_cast<sockaddr*>(&client_), &client_size_);
 }
 
 
-TCPClient::TCPClient(uint16_t port, const std::string& ip_address, const size_t buf_size) 
-: SocketBuf(SocketType::TYPE_STREAM, buf_size)
+TCPClient::TCPClient(uint16_t port, const std::string& ip_address) 
+: Socket(SocketType::TYPE_STREAM)
 {
     set_address(ip_address);
     set_port(port);
@@ -104,22 +99,23 @@ int TCPClient::make_connection()
 }
 
 
-int TCPClient::send_message(const std::string& message)
+ssize_t TCPClient::receive(uint8_t* recv_buf, const size_t recv_buf_size)
 {
-    return send_message((uint8_t*) message.c_str(), message.length());
+    return recv(sockfd_, recv_buf, recv_buf_size, 0);
 }
 
 
-int TCPClient::send_message(const uint8_t* message, const size_t len)
+int TCPClient::send_mes(const uint8_t* mes, const size_t mes_size)
 {
-    if (send(sockfd_, message, len, 0) < 0)
+    if(send(sockfd_, mes, mes_size, 0) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
-    return recv(sockfd_, buf_.get(), buf_size_, 0);
+    return 0;
 }
 
 
-TCPServer::TCPServer(uint16_t port, const std::string& ip_address, const size_t buf_size) 
-: SocketBuf(SocketType::TYPE_STREAM, buf_size)
+
+TCPServer::TCPServer(uint16_t port, const std::string& ip_address) 
+: Socket(SocketType::TYPE_STREAM)
 {
     set_port(port);
     set_address(ip_address);
@@ -130,7 +126,12 @@ int TCPServer::socket_bind()
 {
     if (bind(sockfd_, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
         return static_cast<int>(SocketErrors::BIND_ERROR);
+    return 0;
+}
 
+
+int TCPServer::socket_listen()
+{
     if (listen(sockfd_, 5) < 0)
         return static_cast<int>(SocketErrors::LISTEN_ERROR);
 
@@ -143,19 +144,16 @@ int TCPServer::socket_bind()
 }
 
 
-int TCPServer::spin(void (*func)(uint8_t* const, const size_t, uint8_t** const, size_t* const))
+ssize_t TCPServer::receive(uint8_t* recv_buf, const size_t recv_buf_size)
 {
-    if (recv(client_sock_, buf_.get(), buf_size_, 0) < 0)
-        return static_cast<int>(SocketErrors::RECEIVE_ERROR);
+    return recvfrom(sockfd_, recv_buf, recv_buf_size, 0, reinterpret_cast<sockaddr*>(&client_), &client_size_);
+}
 
-    uint8_t* ans_buf;
-    size_t ans_size;
 
-    func(buf_.get(), buf_size_, &ans_buf, &ans_size);
-        
-    if (send(client_sock_, ans_buf, ans_size, 0))
+int TCPServer::send_mes(const uint8_t* mes, const size_t mes_size)
+{
+    if(sendto(sockfd_, mes, mes_size, 0, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
-    
     return 0;
 }
 

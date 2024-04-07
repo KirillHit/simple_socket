@@ -19,6 +19,7 @@ target_sources(
 
 install(
   TARGETS simple_socket
+  EXPORT simple_socketTargets
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
@@ -28,4 +29,38 @@ install(
 install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../include/simple_socket
   DESTINATION include
+)
+
+install(
+  EXPORT simple_socketTargets
+  FILE simple_socketTargets.cmake
+  NAMESPACE simple_socket::
+  DESTINATION lib/cmake/simple_socket
+)
+
+include(CMakePackageConfigHelpers)
+
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/simple_socketConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/simple_socket
+)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/simple_socketConfigVersion.cmake"
+  VERSION "${simple_socket_VERSION_MAJOR}.${simple_socket_VERSION_MINOR}"
+  COMPATIBILITY AnyNewerVersion
+)
+
+install(
+  FILES 
+    "${CMAKE_CURRENT_BINARY_DIR}/simple_socketConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/simple_socketConfigVersion.cmake"
+  DESTINATION lib/cmake/simple_socket
+)
+
+export(
+  EXPORT simple_socketTargets
+  FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/simple_socketTargets.cmake"
+  NAMESPACE simple_socket::
 )
