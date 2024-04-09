@@ -2,21 +2,27 @@
 #define SIMPLE_SOCKET_HPP_
 
 #include "simple_socket_exception.hpp"
-#include <sys/socket.h> 
-#include <arpa/inet.h>
-#include <unistd.h>
+#include <cstdint>
+#include <string>
 #include <memory>
+
+#ifdef _WIN32
+    #include<winsock2.h>
+    #include <Ws2tcpip.h>
+#else
+    #include <sys/socket.h> 
+    #include <arpa/inet.h>
+    #include <unistd.h>
+#endif
 
 
 namespace sockets
 {
 
-
 enum class SocketType {
     TYPE_STREAM = SOCK_STREAM,
     TYPE_DGRAM = SOCK_DGRAM
 };
-
 
 enum class SocketErrors {
     RECEIVE_ERROR = -1,
@@ -24,8 +30,14 @@ enum class SocketErrors {
     BIND_ERROR = -3,
     ACCEPT_ERROR = -4,
     CONNECT_ERROR = -5,
-    LISTEN_ERROR = -6
+    LISTEN_ERROR = -6,
+    INCORRECT_ADDRESS = -7
 };
+
+
+#ifdef _WIN32
+static int socket_count = 0;
+#endif
 
 
 class Socket
@@ -33,10 +45,10 @@ class Socket
 public:
     explicit Socket(SocketType socket_type);
     ~Socket();
-    void set_socket(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
+    int set_socket(const std::string& ip_address, uint16_t port);
 protected:
     void set_port(uint16_t port);
-    void set_address(const std::string& ip_address);
+    int set_address(const std::string& ip_address);
 protected:
     int sockfd_;
     sockaddr_in address_;
@@ -46,45 +58,47 @@ protected:
 class UDPClient : public Socket
 {
 public:
-    UDPClient(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
-    int send_mes(const uint8_t* mes, const size_t mes_size);
+    UDPClient(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
+    int send_mes(const char* mes, const int mes_size);
 };
 
 
 class UDPServer : public Socket
 {
 public:
-    UDPServer(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
+    UDPServer(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
     int socket_bind();
-    ssize_t receive(uint8_t* recv_buf, const size_t recv_buf_size);
+    int receive(char* recv_buf, const int recv_buf_size);
 private:
     sockaddr_in client_;
-    socklen_t client_size_ = sizeof(sockaddr_in);
+    int client_size_ = sizeof(sockaddr_in);
 };
 
 
 class TCPClient : public Socket
 {
 public:
-    TCPClient(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
+    TCPClient(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
     int make_connection();
-    ssize_t receive(uint8_t* recv_buf, const size_t recv_buf_size);
-    int send_mes(const uint8_t* mes, const size_t mes_size);
+    int receive(char* recv_buf, const int recv_buf_size);
+    int send_mes(const char* mes, const int mes_size);
 };
 
 
 class TCPServer : public Socket
 {
 public:
-    TCPServer(uint16_t port = 8000, const std::string& ip_address = "127.0.0.1");
+    TCPServer(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
     int socket_bind();
     int socket_listen();
-    ssize_t receive(uint8_t* recv_buf, const size_t recv_buf_size);
-    int send_mes(const uint8_t* mes, const size_t mes_size);
+    void close_connection();
+    int receive(char* recv_buf, const int recv_buf_size);
+    int send_mes(const char* mes, const int mes_size);
 private:
+    bool is_open = false;
     int client_sock_;
     sockaddr_in client_;
-    socklen_t client_size_ = sizeof(sockaddr_in);
+    int client_size_ = sizeof(sockaddr_in);
 };
 
 

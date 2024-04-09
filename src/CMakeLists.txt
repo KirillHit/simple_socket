@@ -4,6 +4,10 @@ add_library(simple_socket)
 
 target_compile_features(simple_socket PUBLIC cxx_std_11)
 
+if(WIN32)
+  target_link_libraries(simple_socket wsock32 ws2_32)
+endif()
+
 target_include_directories(
     simple_socket
   PUBLIC 
