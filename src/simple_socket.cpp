@@ -135,6 +135,12 @@ TCPServer::TCPServer(const std::string& ip_address, uint16_t port)
 };
 
 
+TCPServer::~TCPServer()
+{
+    close_connection();
+}
+
+
 int TCPServer::socket_bind()
 {
     if (bind(sockfd_, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)

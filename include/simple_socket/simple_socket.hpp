@@ -89,6 +89,7 @@ class TCPServer : public Socket
 {
 public:
     TCPServer(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
+    ~TCPServer();
     int socket_bind();
     int socket_listen();
     void close_connection();
