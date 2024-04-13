@@ -85,6 +85,8 @@ public:
     int make_connection();
     int receive(char* recv_buf, const int recv_buf_size);
     int send_mes(const char* mes, const int mes_size);
+private:
+    bool is_connected = false;
 };
 
 

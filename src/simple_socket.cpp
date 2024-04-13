@@ -123,9 +123,16 @@ TCPClient::TCPClient(const std::string& ip_address, uint16_t port)
 
 int TCPClient::make_connection()
 {
-    socket_update();
+    // you cannot reuse the connect function for the same socket
+    if (is_connected) {
+        socket_update();
+        is_connected = false;
+    }
+
     if (connect(sockfd_, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
         return static_cast<int>(SocketErrors::CONNECT_ERROR);
+    is_connected = true;
+
     return 0;
 }
 
