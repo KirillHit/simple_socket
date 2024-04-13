@@ -49,9 +49,12 @@ public:
 protected:
     void set_port(uint16_t port);
     int set_address(const std::string& ip_address);
+    void socket_update();
+    void socket_close();
 protected:
     int sockfd_;
     sockaddr_in address_;
+    SocketType socket_type_;
 };
 
 

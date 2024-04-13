@@ -4,7 +4,7 @@
 namespace sockets
 {
 
-Socket::Socket(const SocketType socket_type)
+Socket::Socket(const SocketType socket_type) : socket_type_{socket_type}
 {
 #ifdef _WIN32
     if (!socket_count) {
@@ -16,7 +16,7 @@ Socket::Socket(const SocketType socket_type)
     }
 #endif
     
-    sockfd_ = socket(AF_INET, static_cast<int>(socket_type), 0);
+    sockfd_ = socket(AF_INET, static_cast<int>(socket_type_), 0);
     if (sockfd_ < 0) {
         throw SimpleSocketException(__FILE__, __LINE__, "Could not create socket");
     }
@@ -47,7 +47,17 @@ int Socket::set_address(const std::string& ip_address)
 }
 
 
-Socket::~Socket()
+void Socket::socket_update()
+{
+    socket_close();
+    sockfd_ = socket(AF_INET, static_cast<int>(socket_type_), 0);
+    if (sockfd_ < 0) {
+        throw SimpleSocketException(__FILE__, __LINE__, "Could not create socket");
+    }
+}
+
+
+void Socket::socket_close()
 {
 #ifdef _WIN32
     ::closesocket(sockfd_);
@@ -57,6 +67,12 @@ Socket::~Socket()
 #else
     ::close(sockfd_);
 #endif
+}
+
+
+Socket::~Socket()
+{
+    socket_close();
 }
 
 
@@ -107,6 +123,7 @@ TCPClient::TCPClient(const std::string& ip_address, uint16_t port)
 
 int TCPClient::make_connection()
 {
+    socket_update();
     if (connect(sockfd_, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
         return static_cast<int>(SocketErrors::CONNECT_ERROR);
     return 0;
@@ -121,7 +138,7 @@ int TCPClient::receive(char* recv_buf, const int recv_buf_size)
 
 int TCPClient::send_mes(const char* mes, const int mes_size)
 {
-    if(send(sockfd_, mes, mes_size, 0) < 0)
+    if(send(sockfd_, mes, mes_size, MSG_NOSIGNAL) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
     return 0;
 }
@@ -182,13 +199,13 @@ void TCPServer::close_connection()
 
 int TCPServer::receive(char* recv_buf, const int recv_buf_size)
 {
-    return recvfrom(sockfd_, recv_buf, recv_buf_size, 0, reinterpret_cast<sockaddr*>(&client_), &client_size_);
+    return recv(client_sock_, recv_buf, recv_buf_size, 0);
 }
 
 
 int TCPServer::send_mes(const char* mes, const int mes_size)
 {
-    if(sendto(sockfd_, mes, mes_size, 0, reinterpret_cast<sockaddr*>(&address_), sizeof(address_)) < 0)
+    if(send(client_sock_, mes, mes_size, MSG_NOSIGNAL) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
     return 0;
 }
