@@ -61,18 +61,22 @@ void Socket::socket_close()
 {
 #ifdef _WIN32
     ::closesocket(sockfd_);
-    if (!--socket_count){
-        WSACleanup();
-    }
 #else
     ::close(sockfd_);
 #endif
+    --socket_count;
 }
 
 
 Socket::~Socket()
 {
     socket_close();
+
+#ifdef _WIN32
+    if (!socket_count){
+        WSACleanup();
+    }
+#endif
 }
 
 
@@ -132,20 +136,20 @@ TCPSocket::TCPSocket()
 int TCPSocket::set_keepalive(const int& keepidle, const int& keepcnt, const int& keepintvl)
 {
     int optval = 1;
-    if (setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval)) < 0) {
+    if (setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (char *) &optval, sizeof(optval)) < 0) {
         return -1;
     }
 
     //set the keepalive options
-    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt)) < 0) {
+    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPCNT, (char *) &keepcnt, sizeof(keepcnt)) < 0) {
         return -1;
     }
 
-    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle)) < 0) {
+    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPIDLE, (char *) &keepidle, sizeof(keepidle)) < 0) {
         return -1;
     }
 
-    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl)) < 0) {
+    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPINTVL, (char *) &keepintvl, sizeof(keepintvl)) < 0) {
         return -1;
     }
 
@@ -184,7 +188,13 @@ int TCPClient::receive(char* recv_buf, const int recv_buf_size)
 
 int TCPClient::send_mes(const char* mes, const int mes_size)
 {
-    if(send(sockfd_, mes, mes_size, MSG_NOSIGNAL) < 0)
+#ifdef _WIN32
+    int flags = 0;
+#else
+    int flags = MSG_NOSIGNAL;
+#endif
+
+    if(send(sockfd_, mes, mes_size, flags) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
     return 0;
 }
@@ -250,7 +260,13 @@ int TCPServer::receive(char* recv_buf, const int recv_buf_size)
 
 int TCPServer::send_mes(const char* mes, const int mes_size)
 {
-    if(send(client_sock_, mes, mes_size, MSG_NOSIGNAL) < 0)
+#ifdef _WIN32
+    int flags = 0;
+#else
+    int flags = MSG_NOSIGNAL;
+#endif
+    
+    if(send(client_sock_, mes, mes_size, flags) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
     return 0;
 }
