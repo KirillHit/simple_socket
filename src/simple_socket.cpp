@@ -61,10 +61,10 @@ void Socket::socket_close()
 {
 #ifdef _WIN32
     ::closesocket(sockfd_);
+    --socket_count;
 #else
     ::close(sockfd_);
 #endif
-    --socket_count;
 }
 
 

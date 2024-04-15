@@ -38,6 +38,9 @@ enum class SocketErrors {
 
 #ifdef _WIN32
 static int socket_count = 0;
+typedef int SockaddrSize;
+#else
+typedef unsigned int SockaddrSize;
 #endif
 
 
@@ -75,7 +78,7 @@ public:
     int receive(char* recv_buf, const int recv_buf_size);
 private:
     sockaddr_in client_;
-    int client_size_ = sizeof(sockaddr_in);
+    SockaddrSize client_size_ = sizeof(sockaddr_in);
 };
 
 
@@ -113,7 +116,7 @@ private:
     bool is_open = false;
     int client_sock_;
     sockaddr_in client_;
-    int client_size_ = sizeof(sockaddr_in);
+    SockaddrSize client_size_ = sizeof(sockaddr_in);
 };
 
 
