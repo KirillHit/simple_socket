@@ -12,6 +12,8 @@ int main()
     
     sockets::TCPServer server;
     server.set_socket("127.0.0.1", 10000);
+    server.set_keepalive(1, 1, 1);
+
     if(server.socket_bind() < 0) {
         std::cout << "Bind error" << std::endl;
         return 1;

@@ -7,11 +7,12 @@
 #include <memory>
 
 #ifdef _WIN32
-    #include<winsock2.h>
+    #include <winsock2.h>
     #include <Ws2tcpip.h>
 #else
     #include <sys/socket.h> 
     #include <arpa/inet.h>
+    #include <netinet/tcp.h>
     #include <unistd.h>
 #endif
 
@@ -78,7 +79,15 @@ private:
 };
 
 
-class TCPClient : public Socket
+class TCPSocket : public Socket
+{
+public:
+    TCPSocket();
+    int set_keepalive(const int& keepidle, const int& keepcnt, const int& keepintvl);
+};
+
+
+class TCPClient : public TCPSocket
 {
 public:
     TCPClient(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
@@ -90,7 +99,7 @@ private:
 };
 
 
-class TCPServer : public Socket
+class TCPServer : public TCPSocket
 {
 public:
     TCPServer(const std::string& ip_address = "127.0.0.1", uint16_t port = 8000);
