@@ -40,6 +40,10 @@ void Socket::set_port(uint16_t port)
 
 int Socket::set_address(const std::string& ip_address)
 {
+    if (ip_address.empty()) {
+        address_.sin_addr.s_addr = htonl(INADDR_ANY);
+        return 0;
+    }
     if(!inet_pton(AF_INET, ip_address.c_str(), &address_.sin_addr)) {
         return static_cast<int>(SocketErrors::INCORRECT_ADDRESS);
     }
