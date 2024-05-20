@@ -1,8 +1,10 @@
 option(BUILD_SHARED_LIBS "Build simple_socket shared library" OFF)
 
+set (CMAKE_CXX_STANDARD 11)
+
 add_library(simple_socket)
 
-target_compile_features(simple_socket PUBLIC cxx_std_11)
+#target_compile_features(simple_socket PUBLIC cxx_std_11)
 
 if(WIN32)
   target_link_libraries(simple_socket wsock32 ws2_32)
