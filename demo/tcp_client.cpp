@@ -15,7 +15,6 @@ int main()
 
     sockets::TCPClient client;
     client.set_socket("127.0.0.1", 10000);
-    client.set_keepalive(1, 1, 1);
 
     while (true)
     {

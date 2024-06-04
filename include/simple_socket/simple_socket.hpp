@@ -83,15 +83,7 @@ class UDPServer : public Socket
     SockaddrSize client_size_ = sizeof(sockaddr_in);
 };
 
-class TCPSocket : public Socket
-{
-  public:
-    TCPSocket();
-    int set_keepalive(const int &keepidle, const int &keepcnt,
-                      const int &keepintvl);
-};
-
-class TCPClient : public TCPSocket
+class TCPClient : public Socket
 {
   public:
     TCPClient(const std::string &ip_address = "127.0.0.1",
@@ -104,7 +96,7 @@ class TCPClient : public TCPSocket
     bool is_connected = false;
 };
 
-class TCPServer : public TCPSocket
+class TCPServer : public Socket
 {
   public:
     TCPServer(const std::string &ip_address = "127.0.0.1",
@@ -115,6 +107,8 @@ class TCPServer : public TCPSocket
     void close_connection();
     int receive(char *recv_buf, const int recv_buf_size);
     int send_mes(const char *mes, const int mes_size);
+    int set_keepalive(const int &keepidle, const int &keepcnt,
+                      const int &keepintvl);
 
   private:
     bool is_open = false;

@@ -123,54 +123,8 @@ int UDPServer::receive(char *recv_buf, const int recv_buf_size)
                     reinterpret_cast<sockaddr *>(&client_), &client_size_);
 }
 
-TCPSocket::TCPSocket() : Socket(SocketType::TYPE_STREAM)
-{
-}
-
-/**
- * @brief Set the keepalive options on the socket
- *
- * @param keepidle The time (in seconds) the connection needs to remain
- * idle before TCP starts sending keepalive probes (TCP_KEEPIDLE socket option)
- * @param keepcnt The maximum number of keepalive probes TCP should
- * send before dropping the connection. (TCP_KEEPCNT socket option)
- * @param keepintvl The time (in seconds) between individual keepalive probes.
- * (TCP_KEEPINTVL socket option)
- * @return int
- */
-int TCPSocket::set_keepalive(const int &keepidle, const int &keepcnt,
-                             const int &keepintvl)
-{
-    int optval = 1;
-    if (setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (char *)&optval,
-                   sizeof(optval)) < 0)
-    {
-        return -1;
-    }
-
-    // set the keepalive options
-    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPCNT, (char *)&keepcnt,
-                   sizeof(keepcnt)) < 0)
-    {
-        return -1;
-    }
-
-    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPIDLE, (char *)&keepidle,
-                   sizeof(keepidle)) < 0)
-    {
-        return -1;
-    }
-
-    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPINTVL, (char *)&keepintvl,
-                   sizeof(keepintvl)) < 0)
-    {
-        return -1;
-    }
-
-    return 0;
-}
-
 TCPClient::TCPClient(const std::string &ip_address, uint16_t port)
+    : Socket(SocketType::TYPE_STREAM)
 {
     set_address(ip_address);
     set_port(port);
@@ -212,6 +166,7 @@ int TCPClient::send_mes(const char *mes, const int mes_size)
 }
 
 TCPServer::TCPServer(const std::string &ip_address, uint16_t port)
+    : Socket(SocketType::TYPE_STREAM)
 {
     set_port(port);
     set_address(ip_address);
@@ -276,6 +231,57 @@ int TCPServer::send_mes(const char *mes, const int mes_size)
 
     if (send(client_sock_, mes, mes_size, flags) < 0)
         return static_cast<int>(SocketErrors::SEND_ERROR);
+    return 0;
+}
+
+/**
+ * @brief Set the keepalive options on the socket
+ *
+ * @param keepidle The time (in seconds) the connection needs to remain
+ * idle before TCP starts sending keepalive probes (TCP_KEEPIDLE socket option)
+ * (>=1)
+ * @param keepcnt The maximum number of keepalive probes TCP should
+ * send before dropping the connection. (TCP_KEEPCNT socket option) (>=1)
+ * @param keepintvl The time (in seconds) between individual keepalive probes.
+ * (TCP_KEEPINTVL socket option) (>=1)
+ * @return int
+ */
+int TCPServer::set_keepalive(const int &keepidle, const int &keepcnt,
+                             const int &keepintvl)
+{
+    if (keepidle < 1 || keepcnt < 1 || keepintvl < 1)
+    {
+        throw SimpleSocketException(__FILE__, __LINE__,
+                                    "set_keepalive parameters are incorrect. "
+                                    "Values cannot be less than one");
+    }
+
+    int optval = 1;
+    if (setsockopt(sockfd_, SOL_SOCKET, SO_KEEPALIVE, (char *)&optval,
+                   sizeof(optval)) < 0)
+    {
+        return -1;
+    }
+
+    // set the keepalive options
+    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPCNT, (char *)&keepcnt,
+                   sizeof(keepcnt)) < 0)
+    {
+        return -1;
+    }
+
+    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPIDLE, (char *)&keepidle,
+                   sizeof(keepidle)) < 0)
+    {
+        return -1;
+    }
+
+    if (setsockopt(sockfd_, IPPROTO_TCP, TCP_KEEPINTVL, (char *)&keepintvl,
+                   sizeof(keepintvl)) < 0)
+    {
+        return -1;
+    }
+
     return 0;
 }
 
