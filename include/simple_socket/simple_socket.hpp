@@ -11,6 +11,7 @@
 #include <winsock2.h>
 #else
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -51,20 +52,20 @@ class Socket
     explicit Socket(SocketType socket_type);
     ~Socket();
     int set_socket(const std::string &ip_address, uint16_t port);
-    void set_timeout(const timeout_ms timeout = 1000);
+    void set_timeout(const timeout_ms timeout = 50);
 
   protected:
     void set_port(uint16_t port);
     int set_address(const std::string &ip_address);
     int socket_init();
     void socket_close();
-    int wait_for_receive(const int sockfd, const timeout_ms timeout = 100);
+    int wait_for_receive(const int sockfd);
 
   protected:
     int sockfd_;
     sockaddr_in address_;
     SocketType socket_type_;
-    timeout_ms timeout_ = 100;
+    timeout_ms timeout_ = 50;
 };
 
 class UDPClient : public Socket

@@ -48,8 +48,8 @@ int Socket::set_socket(const std::string &ip_address, uint16_t port)
 
 /**
  * @brief Sets timeouts for the connect and receive functions
- * 
- * @param timeout timeout in ms. Default 1000 ms. 0 for infinite wait.
+ *
+ * @param timeout timeout in ms. Default 50 ms. 0 for infinite wait.
  */
 void Socket::set_timeout(const timeout_ms timeout)
 {
@@ -84,8 +84,8 @@ int Socket::socket_init()
     }
 
     int optval = 1;
-    if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(optval)) <
-        0)
+    if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char *)&optval,
+                   sizeof(optval)) < 0)
     {
         return -1;
     }
@@ -103,19 +103,20 @@ void Socket::socket_close()
 #endif
 }
 
-int Socket::wait_for_receive(const int sockfd, const timeout_ms timeout)
+int Socket::wait_for_receive(const int sockfd)
 {
     fd_set set;
     FD_ZERO(&set);
     FD_SET(sockfd, &set);
 
-    if (timeout == 0) {
+    if (timeout_ == 0)
+    {
         return select(0, &set, NULL, NULL, NULL);
     }
 
     timeval tv;
-    tv.tv_sec  = timeout / 1000;
-    tv.tv_usec = (timeout % 1000) * 1000;
+    tv.tv_sec = timeout_ / 1000;
+    tv.tv_usec = (timeout_ % 1000) * 1000;
 
     return select(0, &set, NULL, NULL, &tv);
 }
@@ -143,6 +144,8 @@ UDPServer::UDPServer(const std::string &ip_address, uint16_t port)
 #ifdef _WIN32
     u_long on = 1;
     ioctlsocket(sockfd_, FIONBIO, &on);
+#else
+    fcntl(sockfd_, F_SETFL, O_NONBLOCK);
 #endif
 }
 
@@ -156,10 +159,11 @@ int UDPServer::socket_bind()
 
 int UDPServer::receive(char *recv_buf, const int recv_buf_size)
 {
-    if (wait_for_receive(sockfd_, timeout_) <= 0) {
+    if (wait_for_receive(sockfd_) < 0)
+    {
         return static_cast<int>(SocketErrors::RECEIVE_ERROR);
     }
-    
+
     return recvfrom(sockfd_, recv_buf, recv_buf_size, 0,
                     reinterpret_cast<sockaddr *>(&client_), &client_size_);
 }
@@ -178,7 +182,8 @@ int TCPSocket::receive(char *recv_buf, const int recv_buf_size)
         return static_cast<int>(SocketErrors::CONNECT_ERROR);
     }
 
-    if (wait_for_receive(dest_sock_, timeout_) <= 0) {
+    if (wait_for_receive(dest_sock_) < 0)
+    {
         return static_cast<int>(SocketErrors::RECEIVE_ERROR);
     }
 
@@ -250,6 +255,8 @@ TCPServer::TCPServer(const std::string &ip_address, uint16_t port)
 #ifdef _WIN32
     u_long on = 1;
     ioctlsocket(sockfd_, FIONBIO, &on);
+#else
+    fcntl(sockfd_, F_SETFL, O_NONBLOCK);
 #endif
 }
 
@@ -274,7 +281,8 @@ int TCPServer::make_connection()
 {
     close_connection();
 
-    if (wait_for_receive(sockfd_, timeout_) <= 0) {
+    if (wait_for_receive(sockfd_) < 0)
+    {
         return static_cast<int>(SocketErrors::CONNECT_ERROR);
     }
 
