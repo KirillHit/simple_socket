@@ -25,7 +25,7 @@ int main()
     // Server initialization
     sockets::UDPServer server;
     server.set_socket("127.0.0.1", 10000);
-    server.set_timeout(2200);
+    server.set_timeout(1000);
     server.socket_bind();
 
     int idx = 0;

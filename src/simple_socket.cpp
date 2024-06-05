@@ -28,6 +28,18 @@ Socket::Socket(const SocketType socket_type) : socket_type_{socket_type}
     address_.sin_family = AF_INET;
 }
 
+Socket::~Socket()
+{
+    socket_close();
+
+#ifdef _WIN32
+    if (!socket_count)
+    {
+        WSACleanup();
+    }
+#endif
+}
+
 int Socket::set_socket(const std::string &ip_address, uint16_t port)
 {
     set_port(port);
@@ -37,14 +49,11 @@ int Socket::set_socket(const std::string &ip_address, uint16_t port)
 /**
  * @brief Sets timeouts for the connect and receive functions
  * 
- * @param ms timeout in ms. Default 1000 ms. 0 for infinite wait.
+ * @param timeout timeout in ms. Default 1000 ms. 0 for infinite wait.
  */
-void Socket::set_timeout(const unsigned int ms)
+void Socket::set_timeout(const timeout_ms timeout)
 {
-    timeval tv;
-    tv.tv_sec = ms / 1000;
-    tv.tv_usec = (ms % 1000) * 1000;
-    setsockopt(sockfd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)); 
+    timeout_ = timeout;
 }
 
 void Socket::set_port(uint16_t port)
@@ -74,10 +83,8 @@ int Socket::socket_init()
         return -1;
     }
 
-    set_timeout();
-
     int optval = 1;
-    if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) <
+    if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(optval)) <
         0)
     {
         return -1;
@@ -96,16 +103,21 @@ void Socket::socket_close()
 #endif
 }
 
-Socket::~Socket()
+int Socket::wait_for_receive(const int sockfd, const timeout_ms timeout)
 {
-    socket_close();
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(sockfd, &set);
 
-#ifdef _WIN32
-    if (!socket_count)
-    {
-        WSACleanup();
+    if (timeout == 0) {
+        return select(0, &set, NULL, NULL, NULL);
     }
-#endif
+
+    timeval tv;
+    tv.tv_sec  = timeout / 1000;
+    tv.tv_usec = (timeout % 1000) * 1000;
+
+    return select(0, &set, NULL, NULL, &tv);
 }
 
 UDPClient::UDPClient(const std::string &ip_address, uint16_t port)
@@ -128,6 +140,10 @@ UDPServer::UDPServer(const std::string &ip_address, uint16_t port)
 {
     set_port(port);
     set_address(ip_address);
+#ifdef _WIN32
+    u_long on = 1;
+    ioctlsocket(sockfd_, FIONBIO, &on);
+#endif
 }
 
 int UDPServer::socket_bind()
@@ -140,6 +156,10 @@ int UDPServer::socket_bind()
 
 int UDPServer::receive(char *recv_buf, const int recv_buf_size)
 {
+    if (wait_for_receive(sockfd_, timeout_) <= 0) {
+        return static_cast<int>(SocketErrors::RECEIVE_ERROR);
+    }
+    
     return recvfrom(sockfd_, recv_buf, recv_buf_size, 0,
                     reinterpret_cast<sockaddr *>(&client_), &client_size_);
 }
@@ -156,6 +176,10 @@ int TCPSocket::receive(char *recv_buf, const int recv_buf_size)
     if (!is_connected_ && make_connection())
     {
         return static_cast<int>(SocketErrors::CONNECT_ERROR);
+    }
+
+    if (wait_for_receive(dest_sock_, timeout_) <= 0) {
+        return static_cast<int>(SocketErrors::RECEIVE_ERROR);
     }
 
     int res = recv(dest_sock_, recv_buf, recv_buf_size, 0);
@@ -223,6 +247,10 @@ int TCPClient::make_connection()
 TCPServer::TCPServer(const std::string &ip_address, uint16_t port)
     : TCPSocket(ip_address, port)
 {
+#ifdef _WIN32
+    u_long on = 1;
+    ioctlsocket(sockfd_, FIONBIO, &on);
+#endif
 }
 
 TCPServer::~TCPServer()
@@ -235,15 +263,20 @@ int TCPServer::socket_bind()
     if (bind(sockfd_, reinterpret_cast<sockaddr *>(&address_),
              sizeof(address_)) < 0)
         return static_cast<int>(SocketErrors::BIND_ERROR);
+
+    if (listen(sockfd_, 5) < 0)
+        return static_cast<int>(SocketErrors::LISTEN_ERROR);
+
     return 0;
 }
 
 int TCPServer::make_connection()
 {
-    if (listen(sockfd_, 5) < 0)
-        return static_cast<int>(SocketErrors::LISTEN_ERROR);
-
     close_connection();
+
+    if (wait_for_receive(sockfd_, timeout_) <= 0) {
+        return static_cast<int>(SocketErrors::CONNECT_ERROR);
+    }
 
     dest_sock_ =
         accept(sockfd_, reinterpret_cast<sockaddr *>(&client_), &client_size_);

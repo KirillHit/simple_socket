@@ -26,7 +26,7 @@ int main()
     sockets::TCPServer server;
     server.set_socket("127.0.0.1", 10000);
     server.set_keepalive(1, 1, 1);
-    server.set_timeout(2200);
+    server.set_timeout(50);
     server.socket_bind();
 
     int idx = 0;
