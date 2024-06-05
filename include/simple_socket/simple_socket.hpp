@@ -49,11 +49,12 @@ class Socket
     explicit Socket(SocketType socket_type);
     ~Socket();
     int set_socket(const std::string &ip_address, uint16_t port);
+    void set_timeout(const unsigned int ms = 1000);
 
   protected:
     void set_port(uint16_t port);
     int set_address(const std::string &ip_address);
-    void socket_update();
+    int socket_init();
     void socket_close();
 
   protected:
@@ -83,36 +84,42 @@ class UDPServer : public Socket
     SockaddrSize client_size_ = sizeof(sockaddr_in);
 };
 
-class TCPClient : public Socket
+class TCPSocket : public Socket
+{
+  public:
+    TCPSocket(const std::string &ip_address, uint16_t port);
+    int receive(char *recv_buf, const int recv_buf_size,
+                const int timeout = 200);
+    int send_mes(const char *mes, const int mes_size);
+    virtual int make_connection() = 0;
+    bool is_connected();
+
+  protected:
+    bool is_connected_ = false;
+    int dest_sock_;
+};
+
+class TCPClient : public TCPSocket
 {
   public:
     TCPClient(const std::string &ip_address = "127.0.0.1",
               uint16_t port = 8000);
-    int make_connection();
-    int receive(char *recv_buf, const int recv_buf_size);
-    int send_mes(const char *mes, const int mes_size);
-
-  private:
-    bool is_connected = false;
+    int make_connection() override;
 };
 
-class TCPServer : public Socket
+class TCPServer : public TCPSocket
 {
   public:
     TCPServer(const std::string &ip_address = "127.0.0.1",
               uint16_t port = 8000);
     ~TCPServer();
     int socket_bind();
-    int socket_listen();
+    int make_connection() override;
     void close_connection();
-    int receive(char *recv_buf, const int recv_buf_size);
-    int send_mes(const char *mes, const int mes_size);
     int set_keepalive(const int &keepidle, const int &keepcnt,
                       const int &keepintvl);
 
   private:
-    bool is_open = false;
-    int client_sock_;
     sockaddr_in client_;
     SockaddrSize client_size_ = sizeof(sockaddr_in);
 };

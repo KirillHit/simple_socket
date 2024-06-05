@@ -19,8 +19,7 @@ Socket::Socket(const SocketType socket_type) : socket_type_{socket_type}
     }
 #endif
 
-    sockfd_ = socket(AF_INET, static_cast<int>(socket_type_), 0);
-    if (sockfd_ < 0)
+    if (socket_init() < 0)
     {
         throw SimpleSocketException(__FILE__, __LINE__,
                                     "Could not create socket");
@@ -33,6 +32,19 @@ int Socket::set_socket(const std::string &ip_address, uint16_t port)
 {
     set_port(port);
     return set_address(ip_address);
+}
+
+/**
+ * @brief Sets timeouts for the connect and receive functions
+ * 
+ * @param ms timeout in ms. Default 1000 ms. 0 for infinite wait.
+ */
+void Socket::set_timeout(const unsigned int ms)
+{
+    timeval tv;
+    tv.tv_sec = ms / 1000;
+    tv.tv_usec = (ms % 1000) * 1000;
+    setsockopt(sockfd_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)); 
 }
 
 void Socket::set_port(uint16_t port)
@@ -54,15 +66,24 @@ int Socket::set_address(const std::string &ip_address)
     return 0;
 }
 
-void Socket::socket_update()
+int Socket::socket_init()
 {
-    socket_close();
     sockfd_ = socket(AF_INET, static_cast<int>(socket_type_), 0);
     if (sockfd_ < 0)
     {
-        throw SimpleSocketException(__FILE__, __LINE__,
-                                    "Could not create socket");
+        return -1;
     }
+
+    set_timeout();
+
+    int optval = 1;
+    if (setsockopt(sockfd_, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) <
+        0)
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
 void Socket::socket_close()
@@ -123,54 +144,87 @@ int UDPServer::receive(char *recv_buf, const int recv_buf_size)
                     reinterpret_cast<sockaddr *>(&client_), &client_size_);
 }
 
-TCPClient::TCPClient(const std::string &ip_address, uint16_t port)
+TCPSocket::TCPSocket(const std::string &ip_address, uint16_t port)
     : Socket(SocketType::TYPE_STREAM)
 {
     set_address(ip_address);
     set_port(port);
 }
 
-int TCPClient::make_connection()
+int TCPSocket::receive(char *recv_buf, const int recv_buf_size,
+                       const int timeout)
 {
-    // you cannot reuse the connect function for the same socket
-    if (is_connected)
+    if (!is_connected_ && make_connection())
     {
-        socket_update();
-        is_connected = false;
+        return static_cast<int>(SocketErrors::CONNECT_ERROR);
     }
 
-    if (connect(sockfd_, reinterpret_cast<sockaddr *>(&address_),
-                sizeof(address_)) < 0)
+    int res = recv(dest_sock_, recv_buf, recv_buf_size, 0);
+
+    if (res < 0)
+    {
+        make_connection();
+    }
+
+    return res;
+}
+
+int TCPSocket::send_mes(const char *mes, const int mes_size)
+{
+    if (!is_connected_ && make_connection())
+    {
         return static_cast<int>(SocketErrors::CONNECT_ERROR);
-    is_connected = true;
+    }
 
-    return 0;
-}
-
-int TCPClient::receive(char *recv_buf, const int recv_buf_size)
-{
-    return recv(sockfd_, recv_buf, recv_buf_size, 0);
-}
-
-int TCPClient::send_mes(const char *mes, const int mes_size)
-{
 #ifdef _WIN32
     int flags = 0;
 #else
     int flags = MSG_NOSIGNAL;
 #endif
 
-    if (send(sockfd_, mes, mes_size, flags) < 0)
+    if (send(dest_sock_, mes, mes_size, flags) < 0)
+    {
+        make_connection();
         return static_cast<int>(SocketErrors::SEND_ERROR);
+    }
+
+    return 0;
+}
+
+bool TCPSocket::is_connected()
+{
+    return is_connected_;
+}
+
+TCPClient::TCPClient(const std::string &ip_address, uint16_t port)
+    : TCPSocket(ip_address, port)
+{
+    dest_sock_ = sockfd_;
+}
+
+int TCPClient::make_connection()
+{
+    // you cannot reuse the connect function for the same socket
+    if (is_connected_)
+    {
+        socket_close();
+        socket_init();
+        dest_sock_ = sockfd_;
+        is_connected_ = false;
+    }
+
+    if (connect(sockfd_, reinterpret_cast<sockaddr *>(&address_),
+                sizeof(address_)) < 0)
+        return static_cast<int>(SocketErrors::CONNECT_ERROR);
+    is_connected_ = true;
+
     return 0;
 }
 
 TCPServer::TCPServer(const std::string &ip_address, uint16_t port)
-    : Socket(SocketType::TYPE_STREAM)
+    : TCPSocket(ip_address, port)
 {
-    set_port(port);
-    set_address(ip_address);
-};
+}
 
 TCPServer::~TCPServer()
 {
@@ -185,53 +239,35 @@ int TCPServer::socket_bind()
     return 0;
 }
 
-int TCPServer::socket_listen()
+int TCPServer::make_connection()
 {
     if (listen(sockfd_, 5) < 0)
         return static_cast<int>(SocketErrors::LISTEN_ERROR);
 
     close_connection();
 
-    client_sock_ =
+    dest_sock_ =
         accept(sockfd_, reinterpret_cast<sockaddr *>(&client_), &client_size_);
 
-    if (client_sock_ < 0)
+    if (dest_sock_ < 0)
         return static_cast<int>(SocketErrors::ACCEPT_ERROR);
 
-    is_open = true;
+    is_connected_ = true;
 
     return 0;
 }
 
 void TCPServer::close_connection()
 {
-    if (is_open)
+    if (is_connected_)
     {
 #ifdef _WIN32
-        ::closesocket(client_sock_);
+        ::closesocket(dest_sock_);
 #else
-        ::close(client_sock_);
+        ::close(dest_sock_);
 #endif
-        is_open = false;
+        is_connected_ = false;
     }
-}
-
-int TCPServer::receive(char *recv_buf, const int recv_buf_size)
-{
-    return recv(client_sock_, recv_buf, recv_buf_size, 0);
-}
-
-int TCPServer::send_mes(const char *mes, const int mes_size)
-{
-#ifdef _WIN32
-    int flags = 0;
-#else
-    int flags = MSG_NOSIGNAL;
-#endif
-
-    if (send(client_sock_, mes, mes_size, flags) < 0)
-        return static_cast<int>(SocketErrors::SEND_ERROR);
-    return 0;
 }
 
 /**
