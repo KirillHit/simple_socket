@@ -57,7 +57,7 @@ int main()
         }
 
         // Receive message
-        res = client.receive(reinterpret_cast<char *>(&rx_msg), MSG_SIZE, 200);
+        res = client.receive(reinterpret_cast<char *>(&rx_msg), MSG_SIZE);
 
         // Processing the result
         switch (res)

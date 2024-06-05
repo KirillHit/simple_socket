@@ -23,9 +23,8 @@ int main()
     Msg tx_msg;
 
     // Server initialization
-    sockets::TCPServer server;
+    sockets::UDPServer server;
     server.set_socket("127.0.0.1", 10000);
-    server.set_keepalive(1, 1, 1);
     server.set_timeout(2200);
     server.socket_bind();
 
@@ -58,27 +57,6 @@ int main()
         default:
             std::cout << "Recv: " << rx_msg.mes_num << " " << rx_msg.time << " "
                       << rx_msg.str << std::endl;
-            break;
-        }
-
-        tx_msg.mes_num = idx;
-        tx_msg.time =
-            std::chrono::system_clock::now().time_since_epoch().count();
-
-        // Send message
-        res = server.send_mes(reinterpret_cast<char *>(&tx_msg), MSG_SIZE);
-
-        // Processing the result
-        switch (res)
-        {
-        case static_cast<int>(sockets::SocketErrors::CONNECT_ERROR):
-            std::cerr << "Connect error" << std::endl;
-            break;
-        case static_cast<int>(sockets::SocketErrors::SEND_ERROR):
-            std::cerr << "Send error" << std::endl;
-            break;
-        default:
-            std::cout << "Send success; " << std::endl;
             break;
         }
     }

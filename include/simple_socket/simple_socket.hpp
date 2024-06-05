@@ -88,8 +88,7 @@ class TCPSocket : public Socket
 {
   public:
     TCPSocket(const std::string &ip_address, uint16_t port);
-    int receive(char *recv_buf, const int recv_buf_size,
-                const int timeout = 200);
+    int receive(char *recv_buf, const int recv_buf_size);
     int send_mes(const char *mes, const int mes_size);
     virtual int make_connection() = 0;
     bool is_connected();

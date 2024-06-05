@@ -151,8 +151,7 @@ TCPSocket::TCPSocket(const std::string &ip_address, uint16_t port)
     set_port(port);
 }
 
-int TCPSocket::receive(char *recv_buf, const int recv_buf_size,
-                       const int timeout)
+int TCPSocket::receive(char *recv_buf, const int recv_buf_size)
 {
     if (!is_connected_ && make_connection())
     {
