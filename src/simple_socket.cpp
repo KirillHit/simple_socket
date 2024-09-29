@@ -111,14 +111,14 @@ int Socket::wait_for_receive(const int sockfd)
 
     if (timeout_ == 0)
     {
-        return select(0, &set, NULL, NULL, NULL);
+        return select(sockfd + 1, &set, NULL, NULL, NULL);
     }
 
     timeval tv;
     tv.tv_sec = timeout_ / 1000;
     tv.tv_usec = (timeout_ % 1000) * 1000;
 
-    return select(0, &set, NULL, NULL, &tv);
+    return select(sockfd + 1, &set, NULL, NULL, &tv);
 }
 
 UDPClient::UDPClient(const std::string &ip_address, uint16_t port)
@@ -189,7 +189,7 @@ int TCPSocket::receive(char *recv_buf, const int recv_buf_size)
 
     int res = recv(dest_sock_, recv_buf, recv_buf_size, 0);
 
-    if (res < 0)
+    if (res <= 0)
     {
         make_connection();
     }
